@@ -45,3 +45,9 @@ func TestSegment(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, s.IsMaxed())
 }
+func testOutOfRangeErr(t *testing.T, log *Log) {
+	read, err := log.Read(1)
+	require.Nil(t, read)
+	apiErr := err.(api.ErrOffsetOutOfRange)
+	require.Equal(t, uint64(1), apiErr.Offset)
+}
