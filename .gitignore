@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+proglog
+server
 
 # Test binary
 *.test
@@ -21,9 +23,23 @@ go.work
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Certificates and Keys
+*.pem
+*.key
+*.csr
+*.crt
+*.ca-key.pem
+*.ca.pem
+
+# Raft and Log Data
+raft/
+*.dat
+*.log
