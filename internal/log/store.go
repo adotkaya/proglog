@@ -76,3 +76,13 @@ func (s *Store) ReadAt(p []byte, off int64) (int, error) {
 	}
 	return s.file.ReadAt(p, off)
 }
+
+func (s *Store) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.buf.Flush()
+	if err != nil {
+		return err
+	}
+	return s.file.Close()
+}
