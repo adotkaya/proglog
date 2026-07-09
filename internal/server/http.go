@@ -3,8 +3,12 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 
+	api "github.com/adotkaya/proglog/api/v1"
+	"github.com/adotkaya/proglog/internal/log"
 	"github.com/gorilla/mux"
 )
 
@@ -23,17 +27,18 @@ func NewHTTPServer(addr string) *http.Server {
 
 // START: types
 type httpServer struct {
-	Log *Log
+	Log *log.Log
 }
 
 func newHTTPServer() *httpServer {
+	l, _ := log.NewLog(os.TempDir(), log.Config{})
 	return &httpServer{
-		Log: NewLog(),
+		Log: l,
 	}
 }
 
 type ProduceRequest struct {
-	Record Record `json:"record"`
+	Record api.Record `json:"record"`
 }
 
 type ProduceResponse struct {
@@ -45,7 +50,7 @@ type ConsumeRequest struct {
 }
 
 type ConsumeResponse struct {
-	Record Record `json:"record"`
+	Record api.Record `json:"record"`
 }
 
 // END:types
@@ -58,7 +63,7 @@ func (s *httpServer) handleProduce(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	off, err := s.Log.Append(req.Record)
+	off, err := s.Log.Append(&req.Record)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -82,7 +87,8 @@ func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record, err := s.Log.Read(req.Offset)
-	if err == ErrOffsetNotFound {
+	var e api.ErrOffsetOutOfRange
+	if errors.As(err, &e) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -90,7 +96,7 @@ func (s *httpServer) handleConsume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res := ConsumeResponse{Record: record}
+	res := ConsumeResponse{Record: *record}
 	err = json.NewEncoder(w).Encode(res)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

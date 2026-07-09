@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/adotkaya/proglog/internal/log"
+	"github.com/adotkaya/proglog/internal/server"
 )
 
 func main() {
