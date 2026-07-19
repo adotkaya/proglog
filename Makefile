@@ -57,7 +57,7 @@ $(CONFIG_PATH)/policy.csv: init
 
 .PHONY: test
 test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
-	go test -race ./...
+	go test -v -race ./...
 # END: auth
 
 .PHONY: compile
