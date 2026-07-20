@@ -25,6 +25,8 @@ type Record struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         []byte                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	Offset        int64                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Term          uint64                 `protobuf:"varint,3,opt,name=term,proto3" json:"term,omitempty"`
+	Type          uint32                 `protobuf:"varint,4,opt,name=type,proto3" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -69,6 +71,20 @@ func (x *Record) GetValue() []byte {
 func (x *Record) GetOffset() int64 {
 	if x != nil {
 		return x.Offset
+	}
+	return 0
+}
+
+func (x *Record) GetTerm() uint64 {
+	if x != nil {
+		return x.Term
+	}
+	return 0
+}
+
+func (x *Record) GetType() uint32 {
+	if x != nil {
+		return x.Type
 	}
 	return 0
 }
@@ -253,10 +269,12 @@ var File_api_v1_log_proto protoreflect.FileDescriptor
 
 const file_api_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"\x10api/v1/log.proto\x12\x06log.v1\"6\n" +
+	"\x10api/v1/log.proto\x12\x06log.v1\"^\n" +
 	"\x06Record\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\fR\x05value\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x03R\x06offset\"8\n" +
+	"\x06offset\x18\x02 \x01(\x03R\x06offset\x12\x12\n" +
+	"\x04term\x18\x03 \x01(\x04R\x04term\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\rR\x04type\"8\n" +
 	"\x0eProduceRequest\x12&\n" +
 	"\x06record\x18\x01 \x01(\v2\x0e.log.v1.RecordR\x06record\")\n" +
 	"\x0fProduceResponse\x12\x16\n" +

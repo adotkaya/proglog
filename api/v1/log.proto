@@ -6,6 +6,8 @@ option go_package = "github.com/adotkaya/proglog/api/log_v1";
 message Record {
   bytes value = 1;
   int64 offset = 2;
+  uint64 term = 3;
+  uint32 type = 4;
 }
 
 service Log {
