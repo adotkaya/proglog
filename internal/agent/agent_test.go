@@ -1,4 +1,3 @@
-// START: imports
 package agent_test
 
 import (
@@ -18,12 +17,12 @@ import (
 	api "github.com/adotkaya/proglog/api/v1"
 	"github.com/adotkaya/proglog/internal/agent"
 	"github.com/adotkaya/proglog/internal/config"
+	"github.com/adotkaya/proglog/internal/loadbalance"
 )
 
-// END: imports
-
-// START: begin
 func TestAgent(t *testing.T) {
+	var agents []*agent.Agent
+
 	serverTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
 		CertFile:      config.ServerCertFile,
 		KeyFile:       config.ServerKeyFile,
@@ -41,10 +40,7 @@ func TestAgent(t *testing.T) {
 		ServerAddress: "127.0.0.1",
 	})
 	require.NoError(t, err)
-	// END: begin
 
-	// START: setup_agents
-	var agents []*agent.Agent
 	for i := 0; i < 3; i++ {
 		ports := dynaport.Get(2)
 		bindAddr := fmt.Sprintf("%s:%d", "127.0.0.1", ports[0])
@@ -55,14 +51,12 @@ func TestAgent(t *testing.T) {
 
 		var startJoinAddrs []string
 		if i != 0 {
-			startJoinAddrs = append(
-				startJoinAddrs,
-				agents[0].Config.BindAddr,
-			)
+			startJoinAddrs = append(startJoinAddrs, agents[0].Config.BindAddr)
 		}
 
 		agent, err := agent.New(agent.Config{
 			NodeName:        fmt.Sprintf("%d", i),
+			Bootstrap:       i == 0,
 			StartJoinAddrs:  startJoinAddrs,
 			BindAddr:        bindAddr,
 			RPCPort:         rpcPort,
@@ -71,7 +65,6 @@ func TestAgent(t *testing.T) {
 			ACLPolicyFile:   config.ACLPolicyFile,
 			ServerTLSConfig: serverTLSConfig,
 			PeerTLSConfig:   peerTLSConfig,
-			Bootstrap:       i == 0,
 		})
 		require.NoError(t, err)
 
@@ -79,43 +72,41 @@ func TestAgent(t *testing.T) {
 	}
 	defer func() {
 		for _, agent := range agents {
-			err := agent.Shutdown()
-			require.NoError(t, err)
-			require.NoError(t,
+			_ = agent.Shutdown()
+			require.NoError(
+				t,
 				os.RemoveAll(agent.Config.DataDir),
 			)
 		}
 	}()
+
+	// wait until agents have joined the cluster
 	time.Sleep(3 * time.Second)
-	// END: setup_agents
 
-	// START: leader
-	leaderClient := client(t, agents[0], peerTLSConfig)
-	produceResponse, err := leaderClient.Produce(
-		context.Background(),
-		&api.ProduceRequest{
-			Record: &api.Record{
-				Value: []byte("foo"),
+	var leaderClient api.LogClient
+	var produceResponse *api.ProduceResponse
+	for _, a := range agents {
+		leaderClient = client(t, a, peerTLSConfig)
+		produceResponse, err = leaderClient.Produce(
+			context.Background(),
+			&api.ProduceRequest{
+				Record: &api.Record{
+					Value: []byte("foo"),
+				},
 			},
-		},
-	)
+		)
+		if err == nil {
+			break
+		}
+	}
 	require.NoError(t, err)
-	consumeResponse, err := leaderClient.Consume(
-		context.Background(),
-		&api.ConsumeRequest{
-			Offset: produceResponse.Offset,
-		},
-	)
-	require.NoError(t, err)
-	require.Equal(t, consumeResponse.Record.Value, []byte("foo"))
-	// END: leader
 
-	// START: follower
+	// START: test_change
 	// wait until replication has finished
 	time.Sleep(3 * time.Second)
 
-	followerClient := client(t, agents[1], peerTLSConfig)
-	consumeResponse, err = followerClient.Consume(
+	//START: leader_check
+	consumeResponse, err := leaderClient.Consume( // <label id="produce" />
 		context.Background(),
 		&api.ConsumeRequest{
 			Offset: produceResponse.Offset,
@@ -123,9 +114,18 @@ func TestAgent(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, consumeResponse.Record.Value, []byte("foo"))
-}
 
-// END: follower
+	followerClient := client(t, agents[1], peerTLSConfig)
+	consumeResponse, err = followerClient.Consume( // <label id="follower" />
+		context.Background(),
+		&api.ConsumeRequest{
+			Offset: produceResponse.Offset,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, consumeResponse.Record.Value, []byte("foo"))
+	// END: test_change
+}
 
 // START: client
 func client(
@@ -134,13 +134,18 @@ func client(
 	tlsConfig *tls.Config,
 ) api.LogClient {
 	tlsCreds := credentials.NewTLS(tlsConfig)
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(tlsCreds)}
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(tlsCreds),
+	}
 	rpcAddr, err := agent.Config.RPCAddr()
 	require.NoError(t, err)
+	// START_HIGHLIGHT
 	conn, err := grpc.Dial(fmt.Sprintf(
-		"%s",
+		"%s:///%s",
+		loadbalance.Name,
 		rpcAddr,
 	), opts...)
+	// END_HIGHLIGHT
 	require.NoError(t, err)
 	client := api.NewLogClient(conn)
 	return client

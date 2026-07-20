@@ -92,10 +92,10 @@ func New(config Config) (*Agent, error) {
 
 // START: setup_mux
 func (a *Agent) setupMux() error {
-	rpcAddr := fmt.Sprintf(
-		":%d",
-		a.Config.RPCPort,
-	)
+	rpcAddr, err := a.Config.RPCAddr()
+	if err != nil {
+		return err
+	}
 	ln, err := net.Listen("tcp", rpcAddr)
 	if err != nil {
 		return err
