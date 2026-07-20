@@ -263,6 +263,25 @@ func (l *DistributedLog) Close() error {
 
 // END: log_close
 
+// START: get_servers
+func (l *DistributedLog) GetServers() ([]*api.Server, error) {
+	future := l.raft.GetConfiguration()
+	if err := future.Error(); err != nil {
+		return nil, err
+	}
+	var servers []*api.Server
+	for _, server := range future.Configuration().Servers {
+		servers = append(servers, &api.Server{
+			Id:       string(server.ID),
+			RpcAddr:  string(server.Address),
+			IsLeader: l.raft.Leader() == server.Address,
+		})
+	}
+	return servers, nil
+}
+
+// END: get_servers
+
 // START: fsm_intro
 var _ raft.FSM = (*fsm)(nil)
 
@@ -348,7 +367,7 @@ func (f *fsm) Restore(r io.ReadCloser) error {
 			return err
 		}
 		if i == 0 {
-			f.log.Config.Segment.InitialOffset = uint64(record.Offset)
+			f.log.Config.Segment.InitialOffset = record.Offset
 			if err := f.log.Reset(); err != nil {
 				return err
 			}
@@ -396,7 +415,7 @@ func (l *logStore) GetLog(index uint64, out *raft.Log) error {
 		return err
 	}
 	out.Data = in.Value
-	out.Index = uint64(in.Offset)
+	out.Index = in.Offset
 	out.Type = raft.LogType(in.Type)
 	out.Term = in.Term
 	return nil
