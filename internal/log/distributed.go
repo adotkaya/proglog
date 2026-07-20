@@ -396,7 +396,7 @@ func (l *logStore) GetLog(index uint64, out *raft.Log) error {
 		return err
 	}
 	out.Data = in.Value
-	out.Index = in.Offset
+	out.Index = uint64(in.Offset)
 	out.Type = raft.LogType(in.Type)
 	out.Term = in.Term
 	return nil

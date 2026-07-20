@@ -288,7 +288,7 @@ func testProduceConsumeStream(
 			require.NoError(t, err)
 			require.Equal(t, res.Record, &api.Record{
 				Value:  record.Value,
-				Offset: int64(i),
+				Offset: uint64(i),
 			})
 		}
 	}
