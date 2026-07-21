@@ -92,10 +92,10 @@ func New(config Config) (*Agent, error) {
 
 // START: setup_mux
 func (a *Agent) setupMux() error {
-	rpcAddr, err := a.Config.RPCAddr()
-	if err != nil {
-		return err
-	}
+	rpcAddr := fmt.Sprintf(
+		":%d",
+		a.Config.RPCPort,
+	)
 	ln, err := net.Listen("tcp", rpcAddr)
 	if err != nil {
 		return err
@@ -125,7 +125,11 @@ func (a *Agent) setupLog() error {
 	)
 	logConfig.Raft.LocalID = raft.ServerID(a.Config.NodeName)
 	logConfig.Raft.Bootstrap = a.Config.Bootstrap
-	var err error
+	rpcAddr, err := a.Config.RPCAddr()
+	if err != nil {
+		return err
+	}
+	logConfig.Raft.BindAddr = rpcAddr
 	a.log, err = log.NewDistributedLog(
 		a.Config.DataDir,
 		logConfig,

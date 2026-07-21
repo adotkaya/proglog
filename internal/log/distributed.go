@@ -133,10 +133,13 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		config := raft.Configuration{
 			Servers: []raft.Server{{
 				ID:      config.LocalID,
-				Address: transport.LocalAddr(),
+				Address: raft.ServerAddress(l.config.Raft.BindAddr),
 			}},
 		}
 		err = l.raft.BootstrapCluster(config).Error()
+		if err == raft.ErrCantBootstrap {
+			err = nil
+		}
 	}
 	return err
 }
@@ -401,6 +404,14 @@ func newLogStore(dir string, c Config) (*logStore, error) {
 
 // START: log_store_read
 func (l *logStore) FirstIndex() (uint64, error) {
+	// Return 0 if the log is empty so Raft sees a consistent empty state.
+	last, err := l.HighestOffset()
+	if err != nil {
+		return 0, err
+	}
+	if last == 0 {
+		return 0, nil
+	}
 	return l.LowestOffset()
 }
 
@@ -429,11 +440,12 @@ func (l *logStore) StoreLog(record *raft.Log) error {
 }
 func (l *logStore) StoreLogs(records []*raft.Log) error {
 	for _, record := range records {
-		if _, err := l.Append(&api.Record{
+		_, err := l.Append(&api.Record{
 			Value: record.Data,
 			Term:  record.Term,
 			Type:  uint32(record.Type),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 	}

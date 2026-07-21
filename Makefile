@@ -1,12 +1,11 @@
-# START: begin
-CONFIG_PATH=${HOME}/.proglog
+CONFIG_PATH=${HOME}/.proglog/
 
 .PHONY: init
 init:
 	mkdir -p ${CONFIG_PATH}
 
 .PHONY: gencert
-gencert: init
+gencert:
 	cfssl gencert \
 		-initca test/ca-csr.json | cfssljson -bare ca
 
@@ -17,16 +16,13 @@ gencert: init
 		-profile=server \
 		test/server-csr.json | cfssljson -bare server
 
-# START: client
 	cfssl gencert \
 		-ca=ca.pem \
 		-ca-key=ca-key.pem \
 		-config=test/ca-config.json \
 		-profile=client \
 		test/client-csr.json | cfssljson -bare client
-# END: client
 
-# START: multi_client
 	cfssl gencert \
 		-ca=ca.pem \
 		-ca-key=ca-key.pem \
@@ -42,23 +38,19 @@ gencert: init
 		-profile=client \
 		-cn="nobody" \
 		test/client-csr.json | cfssljson -bare nobody-client
-# END: multi_client
 
-	# Using 'cp' then 'rm' prevents the "same file" errors if run from odd places
-	cp *.pem *.csr ${CONFIG_PATH}/
-	rm *.pem *.csr
+	mv *.pem *.csr ${CONFIG_PATH}
 
-# START: auth
-$(CONFIG_PATH)/model.conf: init
+$(CONFIG_PATH)/model.conf:
 	cp test/model.conf $(CONFIG_PATH)/model.conf
 
-$(CONFIG_PATH)/policy.csv: init
+$(CONFIG_PATH)/policy.csv:
 	cp test/policy.csv $(CONFIG_PATH)/policy.csv
 
 .PHONY: test
+test:
 test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
 	go test -race ./...
-# END: auth
 
 .PHONY: compile
 compile:
@@ -68,4 +60,11 @@ compile:
 		--go_opt=paths=source_relative \
 		--go-grpc_opt=paths=source_relative \
 		--proto_path=.
-# END: begin
+
+# START: build_docker
+TAG ?= 0.0.1
+
+build-docker:
+	docker build -t github.com/adotkaya/proglog:$(TAG) .
+
+# END: build_docker

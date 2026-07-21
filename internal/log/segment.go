@@ -45,10 +45,30 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 	if s.index, err = newIndex(indexFile, c); err != nil {
 		return nil, err
 	}
-	if off, _, err := s.index.Read(-1); err != nil {
+	// If the store is empty, the segment is empty regardless of index state
+	// (the index file may be pre-allocated with zeros by os.Truncate).
+	if s.store.size == 0 {
 		s.nextOffset = baseOffset
+		s.index.size = 0
 	} else {
-		s.nextOffset = baseOffset + uint64(off) + 1
+		// Recompute the index's logical size from actual entries,
+		// because the index file may have been pre-allocated and
+		// never truncated back down (e.g., container killed before
+		// index.Close() could truncate).
+		var logicalSize uint64
+		for rel := uint64(0); ; rel++ {
+			off, _, err := s.index.Read(int64(rel))
+			if err != nil || uint64(off) != rel {
+				break
+			}
+			logicalSize += entWidth
+		}
+		s.index.size = logicalSize
+		if off, _, err := s.index.Read(-1); err != nil {
+			s.nextOffset = baseOffset
+		} else {
+			s.nextOffset = baseOffset + uint64(off) + 1
+		}
 	}
 	return s, nil
 }
