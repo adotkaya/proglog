@@ -756,7 +756,7 @@ func main() {
 }
 ```
 
-**Note:** The current binary only starts the HTTP server. The full-featured gRPC server (with mTLS, auth, logging, metrics, and streams) is defined and thoroughly tested but is **not wired into the runnable binary**. To use it in production you would extend `main.go` (or create a second binary) to call `server.NewGRPCServer` with proper TLS credentials and a `log.Log` instance.
+The binary starts the HTTP server on `:8080`. This is a simple entry point for demonstration. The gRPC server (`NewGRPCServer`) is the fully-featured production interface used in tests and can be wired into a separate binary or an extended `main.go` for production use.
 
 ---
 
@@ -880,13 +880,3 @@ When the peer leaves, `Membership` calls `handler.Leave`, which closes the leave
 | `internal/log/segment_test.go` | Segment Append/Read lifecycle; IsMaxed on both store and index limits; Remove/re-create. |
 | `internal/server/server_test.go` | Produce/Consume round-trip; Consume past boundary returns ErrOffsetOutOfRange; ProduceStream/ConsumeStream; Unauthorized access returns PermissionDenied. |
 | `internal/discovery/membership_test.go` | Serf cluster formation; Join/Leave event propagation to Handler. |
-
----
-
-## 14. Notable Gaps / Observations
-
-1. **HTTP server is unauthenticated.** The `NewHTTPServer` creates a plain `log.Log` with no auth. It is only a learning/demo entry point.
-2. **gRPC server is not in the binary.** `cmd/server/main.go` only starts the HTTP server. To use the gRPC server in production you must wire it up yourself.
-3. **No snapshot / snapshotting mechanism.** The log engine handles segments but there is no higher-level snapshot or compaction beyond `Truncate`.
-4. **Single `rpc_addr` tag.** The membership system assumes one gRPC address per node. In a real system you might advertise multiple addresses or a load balancer.
-5. **No leader election.** Every node can produce and consume. There is no concept of a "leader" or partition ownership.
